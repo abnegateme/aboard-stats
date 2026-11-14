@@ -3,72 +3,30 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from collections.abc import Mapping
-from datetime import datetime
+from collections.abc import Sequence
 from pathlib import Path
 
-from boardgame_stats.html_report import render_placement_report
-from boardgame_stats.placements import (
-    GameRecord,
+from aboard_stats.interfaces.everdell_json import load_everdell_games
+from aboard_stats.interfaces.html_report import render_placement_report
+from aboard_stats.invariants import GameResult
+from aboard_stats.statistics import (
     summarize_player_placements,
+    summarize_player_scores,
     summarize_player_streaks,
 )
-from boardgame_stats.scores import summarize_player_scores
 
 DEFAULT_INPUT = Path("data/everdell-batch-results-v3.json")
 DEFAULT_OUTPUT = Path("reports/everdell-statistics.html")
-EXPECTED_SCHEMA_VERSION = "3.0.0"
 
 
-def load_everdell_games(path: Path) -> list[GameRecord]:
-    """Load and validate the fields used by the Everdell statistics report."""
-    try:
-        dataset = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"Cannot read dataset {path}: {error}") from error
-
-    if not isinstance(dataset, Mapping):
-        raise TypeError("Dataset root must be a JSON object")
-    if dataset.get("schema_version") != EXPECTED_SCHEMA_VERSION:
-        raise ValueError(
-            f"Expected schema version {EXPECTED_SCHEMA_VERSION}, "
-            f"got {dataset.get('schema_version')!r}"
-        )
-
-    games = dataset.get("games")
-    if not isinstance(games, list):
-        raise TypeError("Dataset must contain a games list")
-
-    typed_games: list[GameRecord] = []
-    for game_index, game in enumerate(games, start=1):
-        if not isinstance(game, Mapping):
-            raise TypeError(f"Game {game_index} must be a JSON object")
-        game_datetime = game.get("game_datetime")
-        if not isinstance(game_datetime, str):
-            raise TypeError(f"Game {game_index} has no valid game_datetime")
-        try:
-            datetime.strptime(game_datetime, "%Y-%m-%dT%H:%M:%S")
-        except ValueError as error:
-            raise ValueError(
-                f"Game {game_index} has an invalid game_datetime: {game_datetime!r}"
-            ) from error
-
-        # Validate player names and places before producing any report output.
-        summarize_player_placements([game])
-        typed_games.append(game)
-
-    return typed_games
-
-
-def _format_period(games: list[GameRecord]) -> str:
+def _format_period(games: Sequence[GameResult]) -> str:
     if not games:
         return "Нет данных"
 
-    game_dates = sorted(str(game["game_datetime"])[:10] for game in games)
-    first_date = datetime.strptime(game_dates[0], "%Y-%m-%d").strftime("%d.%m.%Y")
-    last_date = datetime.strptime(game_dates[-1], "%Y-%m-%d").strftime("%d.%m.%Y")
+    game_dates = sorted(game.ended_at.date() for game in games)
+    first_date = game_dates[0].strftime("%d.%m.%Y")
+    last_date = game_dates[-1].strftime("%d.%m.%Y")
     return first_date if first_date == last_date else f"{first_date} — {last_date}"
 
 

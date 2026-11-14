@@ -1,13 +1,16 @@
-"""Placement statistics shared by games with ranked player results."""
+"""Placement statistics calculated from invariant game result models."""
 
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
-GameRecord = Mapping[str, object]
+from aboard_stats.invariants import GameResult
+
+# Kept as a public type alias for callers that used the former name.
+GameRecord = GameResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,62 +34,18 @@ class PlayerStreaks:
     loss: int
 
 
-def _iter_game_players(
-    game: GameRecord, game_index: int
-) -> Iterator[tuple[str, int, Mapping[str, object]]]:
-    players = game.get("players")
-    if not isinstance(players, Sequence) or isinstance(players, str | bytes):
-        raise TypeError(f"Game {game_index} must contain a players list")
-
-    for player_index, player in enumerate(players, start=1):
-        if not isinstance(player, Mapping):
-            raise TypeError(
-                f"Player {player_index} in game {game_index} must be an object"
-            )
-
-        player_name = player.get("player_name")
-        place = player.get("place")
-        if not isinstance(player_name, str):
-            raise TypeError(
-                f"Player {player_index} in game {game_index} has no valid name"
-            )
-        if not player_name.strip():
-            raise ValueError(
-                f"Player {player_index} in game {game_index} has no valid name"
-            )
-        if isinstance(place, bool) or not isinstance(place, int):
-            raise TypeError(
-                f"Player {player_index} in game {game_index} has an invalid place"
-            )
-        if place < 1:
-            raise ValueError(
-                f"Player {player_index} in game {game_index} has an invalid place"
-            )
-
-        yield player_name, place, player
-
-
-def _iter_game_results(game: GameRecord, game_index: int) -> Iterator[tuple[str, int]]:
-    for player_name, place, _ in _iter_game_players(game, game_index):
-        yield player_name, place
-
-
-def _iter_results(games: Iterable[GameRecord]) -> Iterator[tuple[str, int]]:
+def _iter_results(games: Iterable[GameResult]) -> Iterator[tuple[str, int]]:
     for game_index, game in enumerate(games, start=1):
-        if not isinstance(game, Mapping):
-            raise TypeError(f"Game {game_index} must be an object")
-        yield from _iter_game_results(game, game_index)
+        if not isinstance(game, GameResult):
+            raise TypeError(f"Game {game_index} must be a GameResult")
+        for player in game.players:
+            yield player.player_name, player.place
 
 
 def count_player_placements(
-    games: Iterable[GameRecord], player_name: str
+    games: Iterable[GameResult], player_name: str
 ) -> dict[int, int]:
-    """Count how many times ``player_name`` finished in each place.
-
-    Names are matched exactly as written in the game records. The returned
-    mapping contains only places that player occupied; an unknown player gets
-    an empty mapping.
-    """
+    """Count how many times ``player_name`` finished in each place."""
     if not player_name.strip():
         raise ValueError("player_name must not be empty")
 
@@ -97,7 +56,7 @@ def count_player_placements(
 
 
 def summarize_player_placements(
-    games: Iterable[GameRecord],
+    games: Iterable[GameResult],
 ) -> tuple[PlayerPlacementSummary, ...]:
     """Summarize placement counts for every player in the supplied games."""
     counts_by_player: dict[str, Counter[int]] = {}
@@ -120,30 +79,34 @@ def summarize_player_placements(
 
 
 def summarize_player_streaks(
-    games: Iterable[GameRecord],
+    games: Iterable[GameResult],
 ) -> dict[str, PlayerStreaks]:
     """Calculate longest win and loss runs in each player's chronological games.
 
     Games without a player's result do not break that player's streak. Place 1
-    is a win; every other place is a loss.
+    is a win; every other place is a loss. Naive and timezone-aware game times
+    cannot be mixed for the same player because their ordering is ambiguous.
     """
     results_by_player: dict[str, list[tuple[datetime, int]]] = {}
+    awareness_by_player: dict[str, bool] = {}
     for game_index, game in enumerate(games, start=1):
-        if not isinstance(game, Mapping):
-            raise TypeError(f"Game {game_index} must be an object")
+        if not isinstance(game, GameResult):
+            raise TypeError(f"Game {game_index} must be a GameResult")
+        played_at = game.ended_at
+        is_aware = played_at.tzinfo is not None and played_at.utcoffset() is not None
 
-        game_datetime = game.get("game_datetime")
-        if not isinstance(game_datetime, str):
-            raise TypeError(f"Game {game_index} has no valid game_datetime")
-        try:
-            played_at = datetime.strptime(game_datetime, "%Y-%m-%dT%H:%M:%S")
-        except ValueError as error:
-            raise ValueError(
-                f"Game {game_index} has an invalid game_datetime: {game_datetime!r}"
-            ) from error
-
-        for player_name, place in _iter_game_results(game, game_index):
-            results_by_player.setdefault(player_name, []).append((played_at, place))
+        for player in game.players:
+            previous_awareness = awareness_by_player.setdefault(
+                player.player_name, is_aware
+            )
+            if previous_awareness != is_aware:
+                raise ValueError(
+                    f"Cannot mix timezone-aware and naive game times for "
+                    f"{player.player_name!r}"
+                )
+            results_by_player.setdefault(player.player_name, []).append(
+                (played_at, player.place)
+            )
 
     return {
         player_name: _calculate_streaks(
@@ -153,14 +116,14 @@ def summarize_player_streaks(
     }
 
 
-def longest_win_streak(games: Iterable[GameRecord], player_name: str) -> int:
+def longest_win_streak(games: Iterable[GameResult], player_name: str) -> int:
     """Return the player's longest consecutive run of first-place finishes."""
     if not player_name.strip():
         raise ValueError("player_name must not be empty")
     return summarize_player_streaks(games).get(player_name, PlayerStreaks(0, 0)).win
 
 
-def longest_loss_streak(games: Iterable[GameRecord], player_name: str) -> int:
+def longest_loss_streak(games: Iterable[GameResult], player_name: str) -> int:
     """Return the player's longest consecutive run of non-first-place finishes."""
     if not player_name.strip():
         raise ValueError("player_name must not be empty")

@@ -5,8 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from html import escape
 
-from boardgame_stats.placements import PlayerPlacementSummary, PlayerStreaks
-from boardgame_stats.scores import PlayerScoreStats
+from aboard_stats.statistics.placements import (
+    PlayerPlacementSummary,
+    PlayerStreaks,
+)
+from aboard_stats.statistics.scores import PlayerScoreStats
 
 
 def render_placement_report(

@@ -1,11 +1,11 @@
-"""Score and score-gap statistics for ranked game results."""
+"""Score and score-gap statistics calculated from invariant game models."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from dataclasses import dataclass
 
-from boardgame_stats.placements import GameRecord, _iter_game_players
+from aboard_stats.invariants import GameResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,34 +18,35 @@ class PlayerScoreStats:
 
 
 def summarize_player_scores(
-    games: Iterable[GameRecord],
+    games: Iterable[GameResult],
 ) -> dict[str, PlayerScoreStats]:
     """Calculate each player's highest score and largest win/loss margin.
 
-    For a win, the margin is the player's score minus the second-place score.
-    For a loss, it is the first-place score minus the player's score. Games
-    without the relevant comparison place do not contribute a margin.
+    Player result models may carry an optional ``score`` extension. Games whose
+    players do not provide that extension are rejected.
     """
     max_scores: dict[str, int] = {}
     max_winning_margins: dict[str, int] = {}
     max_losing_gaps: dict[str, int] = {}
 
     for game_index, game in enumerate(games, start=1):
-        if not isinstance(game, Mapping):
-            raise TypeError(f"Game {game_index} must be an object")
+        if not isinstance(game, GameResult):
+            raise TypeError(f"Game {game_index} must be a GameResult")
 
         results: list[tuple[str, int, int]] = []
-        for player_name, place, player in _iter_game_players(game, game_index):
-            score = player.get("score")
+        for player in game.players:
+            score = getattr(player, "score", None)
             if isinstance(score, bool) or not isinstance(score, int):
                 raise TypeError(
-                    f"Player {player_name!r} in game {game_index} has an invalid score"
+                    f"Player {player.player_name!r} in game {game_index} "
+                    "has an invalid score"
                 )
             if score < 0:
                 raise ValueError(
-                    f"Player {player_name!r} in game {game_index} has an invalid score"
+                    f"Player {player.player_name!r} in game {game_index} "
+                    "has an invalid score"
                 )
-            results.append((player_name, place, score))
+            results.append((player.player_name, player.place, score))
 
         second_place_scores = [score for _, place, score in results if place == 2]
         first_place_scores = [score for _, place, score in results if place == 1]
@@ -73,7 +74,7 @@ def summarize_player_scores(
     }
 
 
-def max_player_score(games: Iterable[GameRecord], player_name: str) -> int:
+def max_player_score(games: Iterable[GameResult], player_name: str) -> int:
     """Return a player's highest recorded score, or zero if they have no games."""
     _validate_player_name(player_name)
     return (
@@ -86,7 +87,7 @@ def max_player_score(games: Iterable[GameRecord], player_name: str) -> int:
     )
 
 
-def max_player_winning_margin(games: Iterable[GameRecord], player_name: str) -> int:
+def max_player_winning_margin(games: Iterable[GameResult], player_name: str) -> int:
     """Return the largest point margin over second place in the player's wins."""
     _validate_player_name(player_name)
     return (
@@ -99,7 +100,7 @@ def max_player_winning_margin(games: Iterable[GameRecord], player_name: str) -> 
     )
 
 
-def max_player_losing_gap(games: Iterable[GameRecord], player_name: str) -> int:
+def max_player_losing_gap(games: Iterable[GameResult], player_name: str) -> int:
     """Return the largest point gap from first place in the player's losses."""
     _validate_player_name(player_name)
     return (

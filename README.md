@@ -9,27 +9,71 @@ Everdell.
 
 Requires Python 3.15.
 
+## Invariants and extension interfaces
+
+The shared data model is independent of storage and defined in
+[`docs/invariants.md`](docs/invariants.md). The architecture and SQLite adapter
+are described in
+[`docs/architecture/database-contract.md`](docs/architecture/database-contract.md).
+The package separates `invariants`, `database`, `statistics`, and `interfaces`.
+
+An active dataset object is required. If no company export is selected, the
+application uses its clean local database, created by `create_default_repository`
+on first use. Selecting a company export switches the active dataset to a
+read-only object; the exported file is not modified. Applications may also
+provide their own `GameRepository` implementation. Image recognition can be
+supplied through `ResultImageRecognizer`, which returns the same invariant game
+model.
+
+```python
+from datetime import UTC, datetime
+from pathlib import Path
+
+from aboard_stats import GameResult, PlayerResult, summarize_player_placements
+from aboard_stats.database import (
+    SQLiteGameArchive,
+    create_default_repository,
+)
+
+repository = create_default_repository()
+game = GameResult(
+    game_name="Everdell",
+    ended_at=datetime(2026, 11, 14, 18, 30, tzinfo=UTC),
+    players=(PlayerResult("Corviurge", 1), PlayerResult("Alice", 2)),
+)
+repository.save_game(game)
+print(summarize_player_placements(repository.load_games()))
+
+company_export = SQLiteGameArchive(Path("exports/company.sqlite3"))
+print(summarize_player_placements(company_export.load_games()))
+```
+
+`GameResult.ended_at` defaults to the current UTC time for results entered
+immediately after a game. Existing Everdell JSON and its report remain supported;
+their timezone-naive timestamps are not silently converted to UTC. Player-only
+views and merged company datasets are future work.
+
 ## Placement statistics
 
-The `boardgame_stats` package counts how many times each player finished in
+The `aboard_stats` package counts how many times each player finished in
 each place. Names are matched exactly as recorded in the dataset. To calculate
 counts for one player:
 
 ```python
-import json
 from pathlib import Path
 
-from boardgame_stats import count_player_placements
+from aboard_stats import count_player_placements
+from aboard_stats.interfaces.everdell_json import load_everdell_games
 
-dataset = json.loads(Path("data/everdell-batch-results-v3.json").read_text())
-counts = count_player_placements(dataset["games"], "Corviurge")
+games = load_everdell_games(Path("data/everdell-batch-results-v3.json"))
+counts = count_player_placements(games, "Corviurge")
 print(counts)  # For example: {1: 12, 2: 8, 3: 4, 4: 2}
 ```
 
 The `longest_win_streak(games, player_name)` and
 `longest_loss_streak(games, player_name)` functions return the longest run of
-wins and non-first-place finishes. Streaks follow `game_datetime`; games where
-the player did not participate do not interrupt a streak.
+wins and non-first-place finishes. Streaks follow each game's `ended_at`; games
+where the player did not participate do not interrupt a streak.
 
 `max_player_score(games, player_name)` returns the player's highest score.
 `max_player_winning_margin(games, player_name)` returns the largest winning
@@ -39,7 +83,7 @@ the largest gap from first place in a loss, regardless of the player's place.
 Generate a standalone HTML summary for all players:
 
 ```bash
-python -m boardgame_stats.everdell_report
+python -m aboard_stats.everdell_report
 ```
 
 By default, the script reads `data/everdell-batch-results-v3.json` and writes
