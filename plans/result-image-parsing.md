@@ -1,10 +1,23 @@
 # Everdell: Result Screen Recognition and Data Storage
 
-## Decision Summary
+> **Current implementation direction:** Start with a lightweight tool that
+> identifies result-screen screenshots in a larger photo collection. Use an
+> AI agent with a prepared prompt to read the selected screenshots. The local
+> OCR pipeline for reading result fields and image-parsing pipeline below are
+> deferred as possible later options.
+> See [the AI-assisted workflow note](result-image-parsing-ai-agent.md) for
+> details and a prompt draft.
 
-During the first stage, the game result screen will be the primary data source.
-The optimal way to read it is not generic OCR over the entire image, but a
-hybrid pipeline:
+## Deferred Local Parsing Design
+
+The following hybrid pipeline is a possible later approach if local result
+extraction is needed. It is not the initial implementation direction; the
+lightweight screenshot filter and AI-agent workflow are described in the
+addendum linked above.
+
+If local extraction is implemented, the game result screen should be the
+primary data source. The proposed approach is not generic OCR over the entire
+image, but a hybrid pipeline:
 
 1. locate the result screen and transform it to a canonical size;
 2. extract predefined regions from each row;
@@ -314,6 +327,9 @@ all raw OCR values, bounding boxes, scores, model versions, and reasons for a
 
 ## Implementation Plan
 
+The stages below describe the deferred local parser. The first milestone is
+the candidate-screening tool described in the AI-assisted workflow note.
+
 ### Stage 0. Collect and Annotate a Dataset
 
 - Collect at least 30–50 result screens, including games with 2, 3, and 4
@@ -329,7 +345,7 @@ it cannot select the OCR engine or establish reliability.
 
 ### Stage 1. Vertical Prototype for One Image
 
-- Set up the Python 3.12 package and a `parse-image PATH` CLI command.
+- Set up the Python 3.15 package and a `parse-image PATH` CLI command.
 - Implement the `everdell_digital_v1` layout for the current example.
 - Extract ROIs, recognize fields, and produce structured JSON output.
 - Compare PaddleOCR and Tesseract on the annotated dataset.
@@ -384,9 +400,10 @@ recording incorrect data.
   `ParsedGame`.
 - Analytics and visualizations over the stable schema.
 
-## Scope of the First Implementation
+## Scope of the Deferred Local Parser
 
-Do not include the following in the first working version:
+If work proceeds on the local parser, do not include the following in its first
+working version:
 
 - recursive scanning of a user's image library;
 - continuous screen monitoring or a Snipping Tool-like interface;

@@ -1,0 +1,4 @@
+Pillow>=12.3
+tessdata==1.0.0
+tessdata.fast-eng==1.0.0
+tesserocr==2.13.0

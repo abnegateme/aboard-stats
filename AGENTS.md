@@ -2,7 +2,7 @@
 
 ## Project
 
-Python 3.12 application.
+Python 3.15 application.
 
 ## Development
 
@@ -24,7 +24,7 @@ Run type checking with:
 
 ## Code style
 
-- Use Python 3.12 syntax.
+- Use Python 3.15 syntax.
 - Add type annotations to public functions.
 - Prefer pathlib over os.path.
 - Keep functions small.
@@ -32,6 +32,13 @@ Run type checking with:
 - Do not create temporary files or backup copies, including files with `.bak` or `.orig` suffixes.
 - Do not modify tests merely to make failing code pass.
 - Add tests for new behavior.
+
+## Commit Messages
+
+When the user asks for a commit message, format it with:
+- one concise summary line;
+- a blank line;
+- a bulleted list of concrete changes or additions.
 
 ## Before completing a task
 

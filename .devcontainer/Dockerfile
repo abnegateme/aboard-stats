@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM python:3.15-slim-trixie
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -11,9 +11,6 @@ RUN apt-get update \
     git \
     less \
     openssh-client \
-    python3 \
-    python3-dev \
-    python3-pip \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,13 +24,15 @@ RUN groupadd vscode \
     > /etc/sudoers.d/vscode \
     && chmod 0440 /etc/sudoers.d/vscode
 
+COPY requirements.txt /tmp/requirements.txt
 COPY .devcontainer/requirements-dev.txt /tmp/requirements-dev.txt
 
 RUN python3 -m pip install \
     --break-system-packages \
     --no-cache-dir \
+    -r /tmp/requirements.txt \
     -r /tmp/requirements-dev.txt \
-    && rm /tmp/requirements-dev.txt
+    && rm /tmp/requirements.txt /tmp/requirements-dev.txt
 
 RUN mkdir -p /workspace /home/vscode/.codex \
     && chown -R vscode:vscode \

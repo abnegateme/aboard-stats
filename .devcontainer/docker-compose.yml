@@ -5,7 +5,16 @@ services:
       dockerfile: .devcontainer/Dockerfile
 
     init: true
-    command: sleep infinity
+
+    command:
+      - bash
+      - -lc
+      - |
+        sudo chown -R "$(id -u):$(id -g)" /home/vscode/.codex
+        chmod 700 /home/vscode/.codex
+        mkdir -p /home/vscode/.codex/ipc
+        chmod 700 /home/vscode/.codex/ipc
+        exec sleep infinity
 
     environment:
       PYTHONUNBUFFERED: "1"
@@ -15,10 +24,6 @@ services:
       - type: bind
         source: ..
         target: /workspace
-
-      - type: bind
-        source: ../.vscode
-        target: /workspace/.vscode
 
       - type: volume
         source: codex-data
