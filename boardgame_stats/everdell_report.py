@@ -15,6 +15,7 @@ from boardgame_stats.placements import (
     summarize_player_placements,
     summarize_player_streaks,
 )
+from boardgame_stats.scores import summarize_player_scores
 
 DEFAULT_INPUT = Path("data/everdell-batch-results-v3.json")
 DEFAULT_OUTPUT = Path("reports/everdell-statistics.html")
@@ -78,9 +79,11 @@ def generate_everdell_report(input_path: Path, output_path: Path) -> Path:
 
     games = load_everdell_games(input_path)
     summaries = summarize_player_placements(games)
+    scores = summarize_player_scores(games)
     streaks = summarize_player_streaks(games)
     report = render_placement_report(
         summaries,
+        scores=scores,
         streaks=streaks,
         game_count=len(games),
         period=_format_period(games),

@@ -24,6 +24,11 @@ The `longest_win_streak(games, player_name)` and
 wins and non-first-place finishes. Streaks follow `game_datetime`; games where
 the player did not participate do not interrupt a streak.
 
+`max_player_score(games, player_name)` returns the player's highest score.
+`max_player_winning_margin(games, player_name)` returns the largest winning
+margin over second place. `max_player_losing_gap(games, player_name)` returns
+the largest gap from first place in a loss, regardless of the player's place.
+
 Generate a standalone HTML summary for all players:
 
 ```bash

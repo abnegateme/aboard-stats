@@ -6,11 +6,13 @@ from collections.abc import Mapping, Sequence
 from html import escape
 
 from boardgame_stats.placements import PlayerPlacementSummary, PlayerStreaks
+from boardgame_stats.scores import PlayerScoreStats
 
 
 def render_placement_report(
     summaries: Sequence[PlayerPlacementSummary],
     *,
+    scores: Mapping[str, PlayerScoreStats],
     streaks: Mapping[str, PlayerStreaks],
     game_count: int,
     period: str,
@@ -31,11 +33,18 @@ def render_placement_report(
             for place in places
         )
         player_streaks = streaks.get(summary.player_name, PlayerStreaks(0, 0))
+        player_scores = scores.get(
+            summary.player_name,
+            PlayerScoreStats(max_score=0, winning_margin=0, losing_gap=0),
+        )
         rows.append(
             "<tr>"
             f'<th class="player" scope="row">{escape(summary.player_name)}</th>'
             f'<td class="games">{summary.games_played}</td>'
             f"{cells}"
+            f'<td class="score">{player_scores.max_score}</td>'
+            f'<td class="glorious-victory">{player_scores.winning_margin}</td>'
+            f'<td class="inglorious-defeat">{player_scores.losing_gap}</td>'
             f'<td class="streak">{player_streaks.win}</td>'
             f'<td class="streak">{player_streaks.loss}</td>'
             "</tr>"
@@ -45,7 +54,7 @@ def render_placement_report(
         table_body = "\n".join(rows)
     else:
         table_body = (
-            f'<tr><td class="empty" colspan="{4 + len(places)}">'
+            f'<tr><td class="empty" colspan="{7 + len(places)}">'
             "В этом наборе пока нет результатов."
             "</td></tr>"
         )
@@ -61,7 +70,7 @@ def render_placement_report(
     :root {{ color-scheme: light; --ink: #19342d; --muted: #62736d; --paper: #f4f7f2; --line: #dce5dc; --green: #245c47; }}
     * {{ box-sizing: border-box; }}
     body {{ margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }}
-    main {{ width: min(1120px, calc(100% - 32px)); margin: 48px auto; }}
+    main {{ width: min(1920px, calc(100% - 32px)); margin: 48px auto; }}
     .eyebrow {{ margin: 0 0 8px; color: var(--green); font-size: .76rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }}
     h1 {{ margin: 0; font-size: clamp(2rem, 5vw, 3.25rem); letter-spacing: -.045em; line-height: 1.08; }}
     .intro {{ margin: 12px 0 28px; color: var(--muted); }}
@@ -78,6 +87,7 @@ def render_placement_report(
     .player {{ min-width: 180px; text-align: left; font-weight: 650; }}
     .games {{ font-weight: 700; }}
     .place {{ min-width: 102px; font-variant-numeric: tabular-nums; }}
+    .score, .glorious-victory, .inglorious-defeat {{ min-width: 110px; font-variant-numeric: tabular-nums; font-weight: 650; }}
     .streak {{ min-width: 110px; font-variant-numeric: tabular-nums; font-weight: 650; }}
     .place-1 {{ color: #8a5b00; }}
     .place-2 {{ color: #586a75; }}
@@ -101,13 +111,13 @@ def render_placement_report(
     <div class="table-wrap">
       <table>
         <caption>Места и серии</caption>
-        <thead><tr><th class="player" scope="col">Игрок</th><th scope="col">Партий</th>{place_headers}<th scope="col">Макс. серия побед</th><th scope="col">Макс. серия поражений</th></tr></thead>
+        <thead><tr><th class="player" scope="col">Игрок</th><th scope="col">Партий</th>{place_headers}<th scope="col">Рекорд по очкам</th><th scope="col">Славная победа</th><th scope="col">Бесславное поражение</th><th scope="col">Серия побед</th><th scope="col">Серия поражений</th></tr></thead>
         <tbody>
 {table_body}
         </tbody>
       </table>
     </div>
-    <footer>Строки упорядочены по числу партий. Имена учитываются точно так, как они записаны в наборе данных.</footer>
+    <footer>Строки упорядочены по числу партий. Имена учитываются точно так, как они записаны в наборе данных. «Славная победа» — наибольший отрыв от 2-го места, «Бесславное поражение» — наибольший разрыв с 1-м местом.</footer>
   </main>
 </body>
 </html>

@@ -31,7 +31,9 @@ class PlayerStreaks:
     loss: int
 
 
-def _iter_game_results(game: GameRecord, game_index: int) -> Iterator[tuple[str, int]]:
+def _iter_game_players(
+    game: GameRecord, game_index: int
+) -> Iterator[tuple[str, int, Mapping[str, object]]]:
     players = game.get("players")
     if not isinstance(players, Sequence) or isinstance(players, str | bytes):
         raise TypeError(f"Game {game_index} must contain a players list")
@@ -61,6 +63,11 @@ def _iter_game_results(game: GameRecord, game_index: int) -> Iterator[tuple[str,
                 f"Player {player_index} in game {game_index} has an invalid place"
             )
 
+        yield player_name, place, player
+
+
+def _iter_game_results(game: GameRecord, game_index: int) -> Iterator[tuple[str, int]]:
+    for player_name, place, _ in _iter_game_players(game, game_index):
         yield player_name, place
 
 
