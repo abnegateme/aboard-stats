@@ -1,4 +1,11 @@
-# Everdell tools
+# aboard-stats
+
+## Project disclaimer
+
+aboard-stats began as a simple statistics tool for online Everdell. It is
+gradually expanding into a general-purpose library and applications for board
+game statistics; the current tools and data formats are still focused on
+Everdell.
 
 Requires Python 3.15.
 
