@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:everdell:result-extraction:1.0.0",
+  "$comment": "Historical single-image contract. Multi-image and archive batches use urn:everdell:batch-result-extraction:3.0.0.",
+  "title": "Everdell Digital result extraction v1",
+  "description": "Visible result-screen data extracted from one image. Unknown or unavailable values must not be guessed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "screen",
+    "players",
+    "additional_visible_fields",
+    "unavailable_fields",
+    "warnings",
+    "review_reasons"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "status": {
+      "enum": ["parsed", "not_result", "needs_review"]
+    },
+    "screen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "game_title_raw",
+        "result_label_raw",
+        "outcome",
+        "played_at_raw",
+        "duration_raw",
+        "mode_raw",
+        "expansion_raw"
+      ],
+      "properties": {
+        "game_title_raw": {"type": ["string", "null"]},
+        "result_label_raw": {"type": ["string", "null"]},
+        "outcome": {"enum": ["victory", "defeat", "other", null]},
+        "played_at_raw": {"type": ["string", "null"]},
+        "duration_raw": {"type": ["string", "null"]},
+        "mode_raw": {"type": ["string", "null"]},
+        "expansion_raw": {"type": ["string", "null"]}
+      }
+    },
+    "players": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/playerResult"}
+    },
+    "additional_visible_fields": {
+      "description": "Visible result-table or game-level fields not represented by the standard properties, retained for future statistics.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/additionalField"}
+    },
+    "unavailable_fields": {
+      "description": "Every null data value must have a corresponding entry explaining why it is unavailable. This applies to screen values, player values, and additional_visible_fields[*].value_raw. A null numeric_value is expected when the visible raw value is not an unambiguous integer. Paths use JSONPath-like notation rooted at the response object, e.g. players[0].score.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/unavailableField"}
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "review_reasons": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "$defs": {
+    "playerResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_order",
+        "place",
+        "place_source",
+        "player_name",
+        "character_label_raw",
+        "character_description",
+        "score",
+        "events_completed",
+        "resources_left"
+      ],
+      "properties": {
+        "row_order": {"type": "integer", "minimum": 1},
+        "place": {"type": ["integer", "null"], "minimum": 1},
+        "place_source": {"enum": ["visible_label", "row_order", "unknown"]},
+        "player_name": {"type": ["string", "null"]},
+        "character_label_raw": {"type": ["string", "null"]},
+        "character_description": {"type": ["string", "null"]},
+        "score": {"type": ["integer", "null"], "minimum": 0},
+        "events_completed": {"type": ["integer", "null"], "minimum": 0},
+        "resources_left": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"place_source": {"const": "unknown"}}, "required": ["place_source"]},
+          "then": {"properties": {"place": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"place_source": {"enum": ["visible_label", "row_order"]}}, "required": ["place_source"]},
+          "then": {"properties": {"place": {"type": "integer", "minimum": 1}}}
+        }
+      ]
+    },
+    "additionalField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "row_order", "label_raw", "value_raw", "numeric_value"],
+      "properties": {
+        "scope": {"enum": ["game", "player"]},
+        "row_order": {"type": ["integer", "null"], "minimum": 1},
+        "label_raw": {"type": "string", "minLength": 1},
+        "value_raw": {"type": ["string", "null"]},
+        "numeric_value": {"type": ["integer", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"scope": {"const": "game"}}, "required": ["scope"]},
+          "then": {"properties": {"row_order": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"scope": {"const": "player"}}, "required": ["scope"]},
+          "then": {"properties": {"row_order": {"type": "integer", "minimum": 1}}}
+        }
+      ]
+    },
+    "unavailableField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "reason": {"enum": ["not_shown", "unreadable", "ambiguous"]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "not_result"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "players": {"maxItems": 0},
+          "warnings": {"minItems": 1}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "parsed"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "players": {"minItems": 1},
+          "review_reasons": {"maxItems": 0}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "needs_review"}}, "required": ["status"]},
+      "then": {"properties": {"review_reasons": {"minItems": 1}}}
+    }
+  ]
+}

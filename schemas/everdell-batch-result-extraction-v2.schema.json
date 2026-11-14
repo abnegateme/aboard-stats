@@ -1,0 +1,341 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:everdell:batch-result-extraction:2.0.0",
+  "$comment": "Superseded by urn:everdell:batch-result-extraction:3.0.0 for the current statistical dataset.",
+  "title": "Everdell Digital batch result extraction v2",
+  "description": "One dataset containing extracted result data for every image in a batch, with source and date provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "batch_status",
+    "expected_image_count",
+    "processed_image_count",
+    "images",
+    "unprocessed_sources",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "batch_status": {"enum": ["complete", "needs_review"]},
+    "expected_image_count": {
+      "description": "Number of image files in the supplied source manifest, including non-result images and excluding non-image archive members.",
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "processed_image_count": {
+      "description": "Number of entries in images; consumers should validate that this equals images.length and compare it with expected_image_count.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "images": {
+      "description": "One record per enumerated input image, in manifest order.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/imageRecord"}
+    },
+    "unprocessed_sources": {
+      "description": "Expected image sources that could not be enumerated or represented by an images entry.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/unprocessedSource"}
+    },
+    "warnings": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "$defs": {
+    "imageRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_order",
+        "source_ref",
+        "source_filename",
+        "status",
+        "game",
+        "possible_duplicate_sources",
+        "warnings",
+        "review_reasons"
+      ],
+      "properties": {
+        "input_order": {"type": "integer", "minimum": 1},
+        "source_ref": {
+          "description": "Unique source identifier copied from the manifest; archive entries include the archive and internal relative path.",
+          "type": "string",
+          "minLength": 1
+        },
+        "source_filename": {"type": ["string", "null"]},
+        "status": {"enum": ["parsed", "not_result", "needs_review"]},
+        "game": {
+          "oneOf": [
+            {"$ref": "#/$defs/gameRecord"},
+            {"type": "null"}
+          ]
+        },
+        "possible_duplicate_sources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "warnings": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "review_reasons": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "parsed"}}, "required": ["status"]},
+          "then": {
+            "properties": {
+              "game": {
+                "$ref": "#/$defs/gameRecord",
+                "allOf": [
+                  {
+                    "properties": {"game_date": {"$ref": "#/$defs/isoDate"}}
+                  },
+                  {
+                    "not": {
+                      "properties": {"game_date_source": {"const": "conflict"}},
+                      "required": ["game_date_source"]
+                    }
+                  }
+                ]
+              },
+              "possible_duplicate_sources": {"maxItems": 0},
+              "review_reasons": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "not_result"}}, "required": ["status"]},
+          "then": {
+            "properties": {
+              "game": {"type": "null"},
+              "warnings": {"minItems": 1},
+              "possible_duplicate_sources": {"maxItems": 0},
+              "review_reasons": {"maxItems": 0}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"status": {"const": "needs_review"}}, "required": ["status"]},
+          "then": {"properties": {"review_reasons": {"minItems": 1}}}
+        }
+      ]
+    },
+    "gameRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "game_date",
+        "game_date_source",
+        "filename_date_raw",
+        "filename_date",
+        "screen_date_raw",
+        "screen_date",
+        "screen",
+        "table_headers_raw",
+        "players",
+        "additional_visible_fields",
+        "unavailable_fields"
+      ],
+      "properties": {
+        "game_date": {
+          "description": "ISO date used for chronological statistics; taken from the filename, visible screen date, or both when they agree.",
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "game_date_source": {"enum": ["filename", "screen", "both", "conflict", "unknown"]},
+        "filename_date_raw": {"type": ["string", "null"]},
+        "filename_date": {"type": ["string", "null"], "format": "date"},
+        "screen_date_raw": {"type": ["string", "null"]},
+        "screen_date": {"type": ["string", "null"], "format": "date"},
+        "screen": {"$ref": "#/$defs/screenRecord"},
+        "table_headers_raw": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "players": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/playerResult"}
+        },
+        "additional_visible_fields": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/additionalField"}
+        },
+        "unavailable_fields": {
+          "description": "Every null data value must have a path/reason entry, except a null numeric_value when value_raw is visible nonnumeric or ambiguous text. Paths are relative to this game object, e.g. players[0].score.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/unavailableField"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"game_date_source": {"const": "unknown"}}, "required": ["game_date_source"]},
+          "then": {
+            "properties": {
+              "game_date": {"type": "null"},
+              "filename_date": {"type": "null"},
+              "screen_date": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"game_date_source": {"const": "conflict"}}, "required": ["game_date_source"]},
+          "then": {"properties": {"game_date": {"type": "null"}, "filename_date": {"$ref": "#/$defs/isoDate"}, "screen_date": {"$ref": "#/$defs/isoDate"}}}
+        },
+        {
+          "if": {"properties": {"game_date_source": {"const": "filename"}}, "required": ["game_date_source"]},
+          "then": {
+            "properties": {
+              "game_date": {"$ref": "#/$defs/isoDate"},
+              "filename_date": {"$ref": "#/$defs/isoDate"},
+              "screen_date": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"game_date_source": {"const": "screen"}}, "required": ["game_date_source"]},
+          "then": {
+            "properties": {
+              "game_date": {"$ref": "#/$defs/isoDate"},
+              "filename_date": {"type": "null"},
+              "screen_date": {"$ref": "#/$defs/isoDate"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"game_date_source": {"const": "both"}}, "required": ["game_date_source"]},
+          "then": {"properties": {"game_date": {"$ref": "#/$defs/isoDate"}, "filename_date": {"$ref": "#/$defs/isoDate"}, "screen_date": {"$ref": "#/$defs/isoDate"}}}
+        }
+      ]
+    },
+    "isoDate": {"type": "string", "format": "date"},
+    "screenRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "game_title_raw",
+        "result_label_raw",
+        "outcome",
+        "duration_raw",
+        "mode_raw",
+        "expansion_raw"
+      ],
+      "properties": {
+        "game_title_raw": {"type": ["string", "null"]},
+        "result_label_raw": {"type": ["string", "null"]},
+        "outcome": {"enum": ["victory", "defeat", "other", null]},
+        "duration_raw": {"type": ["string", "null"]},
+        "mode_raw": {"type": ["string", "null"]},
+        "expansion_raw": {"type": ["string", "null"]}
+      }
+    },
+    "playerResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_order",
+        "place",
+        "place_source",
+        "player_name",
+        "character_label_raw",
+        "character_description",
+        "score",
+        "events_completed",
+        "resources_left"
+      ],
+      "properties": {
+        "row_order": {"type": "integer", "minimum": 1},
+        "place": {"type": ["integer", "null"], "minimum": 1},
+        "place_source": {"enum": ["visible_label", "row_order", "unknown"]},
+        "player_name": {"type": ["string", "null"]},
+        "character_label_raw": {"type": ["string", "null"]},
+        "character_description": {"type": ["string", "null"]},
+        "score": {"type": ["integer", "null"], "minimum": 0},
+        "events_completed": {"type": ["integer", "null"], "minimum": 0},
+        "resources_left": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"place_source": {"const": "unknown"}}, "required": ["place_source"]},
+          "then": {"properties": {"place": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"place_source": {"enum": ["visible_label", "row_order"]}}, "required": ["place_source"]},
+          "then": {"properties": {"place": {"type": "integer", "minimum": 1}}}
+        }
+      ]
+    },
+    "additionalField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "row_order", "label_raw", "value_raw", "numeric_value"],
+      "properties": {
+        "scope": {"enum": ["game", "player"]},
+        "row_order": {"type": ["integer", "null"], "minimum": 1},
+        "label_raw": {"type": "string", "minLength": 1},
+        "value_raw": {"type": ["string", "null"]},
+        "numeric_value": {"type": ["integer", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"scope": {"const": "game"}}, "required": ["scope"]},
+          "then": {"properties": {"row_order": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"scope": {"const": "player"}}, "required": ["scope"]},
+          "then": {"properties": {"row_order": {"type": "integer", "minimum": 1}}}
+        }
+      ]
+    },
+    "unavailableField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "reason"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "reason": {"enum": ["not_shown", "unreadable", "ambiguous"]}
+      }
+    },
+    "unprocessedSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "reason"],
+      "properties": {
+        "source_ref": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"batch_status": {"const": "complete"}}, "required": ["batch_status"]},
+      "then": {
+        "properties": {
+          "expected_image_count": {"type": "integer", "minimum": 1},
+          "processed_image_count": {"type": "integer", "minimum": 1},
+          "unprocessed_sources": {"maxItems": 0},
+          "images": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "status": {"enum": ["parsed", "not_result"]},
+                "possible_duplicate_sources": {"maxItems": 0}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"batch_status": {"const": "needs_review"}}, "required": ["batch_status"]},
+      "then": {"properties": {"warnings": {"minItems": 1}}}
+    }
+  ]
+}
