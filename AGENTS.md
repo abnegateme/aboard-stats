@@ -6,10 +6,6 @@ Python 3.15 application.
 
 ## Development
 
-Run tests with:
-
-    pytest
-
 Run linting with:
 
     ruff check .
@@ -30,19 +26,18 @@ Run type checking with:
 - Keep functions small.
 - Use Python tooling to apply changes from inside the devcontainer.
 - Do not create temporary files or backup copies, including files with `.bak` or `.orig` suffixes.
-- Do not modify tests merely to make failing code pass.
-- Add tests for new behavior.
+- Do not create or run tests for this project.
 
 ## Commit Messages
 
 When the user asks for a commit message, format it with:
-- one concise summary line;
-- a blank line;
-- a bulleted list of concrete changes or additions.
+- Write the message in English.
+- Start with one concise summary line.
+- Leave a blank line after the summary line.
+- Follow with a bulleted list of concrete changes or additions.
 
 ## Before completing a task
 
 Run:
 
     ruff check .
-    pytest
