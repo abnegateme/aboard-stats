@@ -19,6 +19,11 @@ counts = count_player_placements(dataset["games"], "Corviurge")
 print(counts)  # For example: {1: 12, 2: 8, 3: 4, 4: 2}
 ```
 
+The `longest_win_streak(games, player_name)` and
+`longest_loss_streak(games, player_name)` functions return the longest run of
+wins and non-first-place finishes. Streaks follow `game_datetime`; games where
+the player did not participate do not interrupt a streak.
+
 Generate a standalone HTML summary for all players:
 
 ```bash

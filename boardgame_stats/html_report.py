@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from html import escape
 
-from boardgame_stats.placements import PlayerPlacementSummary
+from boardgame_stats.placements import PlayerPlacementSummary, PlayerStreaks
 
 
 def render_placement_report(
     summaries: Sequence[PlayerPlacementSummary],
     *,
+    streaks: Mapping[str, PlayerStreaks],
     game_count: int,
     period: str,
     title: str,
@@ -29,11 +30,14 @@ def render_placement_report(
             f'<td class="place place-{place}">{summary.placements.get(place, 0)}</td>'
             for place in places
         )
+        player_streaks = streaks.get(summary.player_name, PlayerStreaks(0, 0))
         rows.append(
             "<tr>"
             f'<th class="player" scope="row">{escape(summary.player_name)}</th>'
             f'<td class="games">{summary.games_played}</td>'
             f"{cells}"
+            f'<td class="streak">{player_streaks.win}</td>'
+            f'<td class="streak">{player_streaks.loss}</td>'
             "</tr>"
         )
 
@@ -41,7 +45,7 @@ def render_placement_report(
         table_body = "\n".join(rows)
     else:
         table_body = (
-            f'<tr><td class="empty" colspan="{2 + len(places)}">'
+            f'<tr><td class="empty" colspan="{4 + len(places)}">'
             "В этом наборе пока нет результатов."
             "</td></tr>"
         )
@@ -74,6 +78,7 @@ def render_placement_report(
     .player {{ min-width: 180px; text-align: left; font-weight: 650; }}
     .games {{ font-weight: 700; }}
     .place {{ min-width: 102px; font-variant-numeric: tabular-nums; }}
+    .streak {{ min-width: 110px; font-variant-numeric: tabular-nums; font-weight: 650; }}
     .place-1 {{ color: #8a5b00; }}
     .place-2 {{ color: #586a75; }}
     .place-3 {{ color: #87533a; }}
@@ -87,7 +92,7 @@ def render_placement_report(
   <main>
     <p class="eyebrow">Статистика настольных игр</p>
     <h1>{escape(title)}</h1>
-    <p class="intro">Распределение занятых мест по каждому игроку.</p>
+    <p class="intro">Занятые места и максимальные серии для каждого игрока.</p>
     <section class="cards" aria-label="Общая информация">
       <article class="card"><span class="card-label">Партий</span><span class="card-value">{game_count}</span></article>
       <article class="card"><span class="card-label">Игроков</span><span class="card-value">{player_count}</span></article>
@@ -95,8 +100,8 @@ def render_placement_report(
     </section>
     <div class="table-wrap">
       <table>
-        <caption>Места и количество партий</caption>
-        <thead><tr><th class="player" scope="col">Игрок</th><th scope="col">Партий</th>{place_headers}</tr></thead>
+        <caption>Места и серии</caption>
+        <thead><tr><th class="player" scope="col">Игрок</th><th scope="col">Партий</th>{place_headers}<th scope="col">Макс. серия побед</th><th scope="col">Макс. серия поражений</th></tr></thead>
         <tbody>
 {table_body}
         </tbody>

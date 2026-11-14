@@ -10,7 +10,11 @@ from datetime import datetime
 from pathlib import Path
 
 from boardgame_stats.html_report import render_placement_report
-from boardgame_stats.placements import GameRecord, summarize_player_placements
+from boardgame_stats.placements import (
+    GameRecord,
+    summarize_player_placements,
+    summarize_player_streaks,
+)
 
 DEFAULT_INPUT = Path("data/everdell-batch-results-v3.json")
 DEFAULT_OUTPUT = Path("reports/everdell-statistics.html")
@@ -74,8 +78,10 @@ def generate_everdell_report(input_path: Path, output_path: Path) -> Path:
 
     games = load_everdell_games(input_path)
     summaries = summarize_player_placements(games)
+    streaks = summarize_player_streaks(games)
     report = render_placement_report(
         summaries,
+        streaks=streaks,
         game_count=len(games),
         period=_format_period(games),
         title="Everdell — статистика мест",
